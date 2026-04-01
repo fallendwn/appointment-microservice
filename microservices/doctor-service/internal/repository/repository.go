@@ -1,0 +1,64 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/fallendwn/appointment/doctor-service/internal/model"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+type DoctorRepo struct {
+	col *mongo.Collection
+}
+
+func NewDoctorRepo(col *mongo.Collection) *DoctorRepo {
+	return &DoctorRepo{
+		col: col,
+	}
+}
+
+func (r *DoctorRepo) CreateDoctor(ctx context.Context, doc model.Doctor) error {
+
+	_, err := r.col.InsertOne(ctx, doc)
+	return err
+
+}
+
+func (r *DoctorRepo) GetDoctors(ctx context.Context) ([]model.Doctor, error) {
+	var doctorsList []model.Doctor
+	filter := bson.M{}
+	cursor, err := r.col.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var d model.Doctor
+		if err := cursor.Decode(&d); err != nil {
+			return nil, err
+		}
+		doctorsList = append(doctorsList, d)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return doctorsList, nil
+}
+
+func (r *DoctorRepo) GetDoctor(ctx context.Context, id string) (model.Doctor, error) {
+	objectId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return model.Doctor{}, err
+	}
+	filter := bson.M{"_id": objectId}
+	var result model.Doctor
+	err = r.col.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		return model.Doctor{}, err
+	}
+
+	return result, nil
+}
