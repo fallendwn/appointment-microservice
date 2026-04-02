@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/fallendwn/appointment/appointment-service/internal/client"
 	"github.com/fallendwn/appointment/appointment-service/internal/dto"
@@ -49,8 +50,21 @@ func (u *AppointmentUseCase) GetAppointmentInfo(ctx context.Context, id string) 
 }
 
 func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment model.Appointment) error {
-	if ok, _ := client.CheckDoctorExists(ctx, appointment.DoctorID.Hex()); !(ok) || appointment.Title == "" || appointment.Description == "" {
-		return errors.New("bad data")
+	ok, err := client.CheckDoctorExists(ctx, appointment.DoctorID.Hex())
+	if err != nil {
+		return fmt.Errorf("network error: cannot reach doctor-service: %v", err)
+	}
+	if !ok {
+		return errors.New("doctor not found in doctor-service")
+	}
+	if appointment.Title == "" {
+		return errors.New("title is empty")
+	}
+	if appointment.Description == "" {
+		return errors.New("description is empty")
+	}
+	if !appointment.Status.IsValid() {
+		return fmt.Errorf("invalid status: received '%s'", appointment.Status)
 	}
 	return u.repo.CreateAppointment(ctx, appointment)
 }
@@ -61,6 +75,7 @@ func (u *AppointmentUseCase) PatchAppointment(ctx context.Context, input dto.Pat
 	if err != nil {
 		return appointment, errors.New("appointment d.n.e.")
 	}
+
 	var status model.Status = appointment.Status
 	switch {
 	case status == "done":

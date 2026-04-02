@@ -11,7 +11,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Port:     getEnv("PORT", ":8080"),
+		Port:     getEnv("PORT", ":8081"),
 		MongoURI: getEnv("MONGO_URI", "mongodb://localhost:27017"),
 	}
 

@@ -68,13 +68,15 @@ func (h *AppointmentHandler) RetrieveAppointmentByID(c *gin.Context) {
 func (h *AppointmentHandler) PatchAppointmentStatus(c *gin.Context) {
 
 	id := c.Param("id")
-	var status model.Status
-	err := c.ShouldBindJSON(&status)
+	var req struct {
+		Status model.Status `json:"status"`
+	}
+	err := c.ShouldBindJSON(&req)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	input := dto.PatchDTO{Id: id, Status: &status}
+	input := dto.PatchDTO{Id: id, Status: &req.Status}
 	appointment, err := h.uc.PatchAppointment(context.Background(), input)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})

@@ -2,11 +2,13 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/fallendwn/appointment/doctor-service/internal/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type DoctorRepo struct {
@@ -14,6 +16,14 @@ type DoctorRepo struct {
 }
 
 func NewDoctorRepo(col *mongo.Collection) *DoctorRepo {
+	indexModel := mongo.IndexModel{
+		Keys:    bson.D{{Key: "email", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := col.Indexes().CreateOne(context.Background(), indexModel)
+	if err != nil {
+		fmt.Print(err)
+	}
 	return &DoctorRepo{
 		col: col,
 	}

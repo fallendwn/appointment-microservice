@@ -7,7 +7,7 @@ import (
 )
 
 func CheckDoctorExists(ctx context.Context, doctorID string) (bool, error) {
-	url := fmt.Sprintf("http://doctor-service:8080/api/v1/doctors/%s", doctorID)
+	url := fmt.Sprintf("http://localhost:8081/api/v1/doctors/%s", doctorID)
 
 	resp, err := http.Get(url)
 	if err != nil {
