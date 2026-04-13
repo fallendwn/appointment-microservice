@@ -20,9 +20,13 @@ func NewAppointmentRepo(col *mongo.Collection) *AppointmentRepo {
 	return &AppointmentRepo{col: col}
 }
 
-func (r *AppointmentRepo) CreateAppointment(ctx context.Context, appoint model.Appointment) error {
-	_, err := r.col.InsertOne(ctx, toAppointmentDAO(appoint))
-	return err
+func (r *AppointmentRepo) CreateAppointment(ctx context.Context, appoint model.Appointment) (model.Appointment, error) {
+	result, err := r.col.InsertOne(ctx, toAppointmentDAO(appoint))
+	if err != nil {
+		return model.Appointment{}, err
+	}
+	appoint.ID = result.InsertedID.(primitive.ObjectID)
+	return appoint, err
 }
 
 func (r *AppointmentRepo) GetAppointments(ctx context.Context) ([]model.Appointment, error) {

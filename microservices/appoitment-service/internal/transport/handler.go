@@ -3,98 +3,87 @@ package transport
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 
 	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
-	"github.com/gin-gonic/gin"
+	pb "github.com/fallendwn/appointment/appointment-service/internal/proto"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type AppointmentUseCase interface {
 	GetAppointmentsInfo(ctx context.Context) ([]model.Appointment, error)
 	GetAppointmentInfo(ctx context.Context, id string) (model.Appointment, error)
 	PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error)
-	CreateAppointment(ctx context.Context, appointment model.Appointment) error
+	CreateAppointment(ctx context.Context, appointment model.Appointment) (model.Appointment, error)
 }
 
 type AppointmentHandler struct {
+	pb.UnimplementedAppointmentServiceServer
 	uc AppointmentUseCase
 }
 
 func NewAppointmentHandler(uc AppointmentUseCase) *AppointmentHandler {
 	return &AppointmentHandler{uc: uc}
 }
-
-func (h *AppointmentHandler) RegisterAppointment(c *gin.Context) {
-	var input dto.CreateAppointmentDTO
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
+func (h *AppointmentHandler) CreateAppointment(ctx context.Context, req *pb.CreateAppointmentRequest) (*pb.AppointmentResponse, error) {
+	//doctor exists?
+	doctorID, err := primitive.ObjectIDFromHex(req.DoctorId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid doctor_id")
 	}
-
 	appointment := model.Appointment{
-		Title:       input.Title,
-		Description: input.Description,
-		DoctorID:    input.DoctorID,
+		Title:       req.Title,
+		Description: req.Description,
+		DoctorID:    doctorID,
 	}
 
-	if err := h.uc.CreateAppointment(c.Request.Context(), appointment); err != nil {
+	if appoint, err := h.uc.CreateAppointment(ctx, appointment); err != nil {
 		if err.Error() == "doctor not found in doctor-service" {
-			c.JSON(404, gin.H{"error": err.Error()})
-			return
+			return nil, status.Error(codes.NotFound, "invalid doctor_id")
 		}
 		if strings.Contains(err.Error(), "network error") {
-			log.Printf("[ERROR] doctor-service unavailable: %v", err)
-			c.JSON(503, gin.H{"error": "doctor-service unavailable"})
-			return
+			return nil, status.Error(codes.Unavailable, "doctor service is unavailable")
 		}
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+		return nil, status.Error(codes.Internal, "internal error")
+	} else {
+		return appointmentToProto(&appoint), nil
 	}
-	c.JSON(201, appointment)
 }
 
-func (h *AppointmentHandler) RetrieveAppointments(c *gin.Context) {
-	appointments, err := h.uc.GetAppointmentsInfo(c.Request.Context())
+func (h *AppointmentHandler) ListAppointments(ctx context.Context, req *pb.ListAppointmentsRequest) (*pb.ListAppointmentsResponse, error) {
+	appointments, err := h.uc.GetAppointmentsInfo(ctx)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+		return nil, status.Error(codes.Internal, "internal error")
 	}
-	c.JSON(200, appointments)
+	var result []*pb.AppointmentResponse
+	for _, a := range appointments {
+		result = append(result, appointmentToProto(&a))
+	}
+	return &pb.ListAppointmentsResponse{Appointments: result}, nil
 }
 
-func (h *AppointmentHandler) RetrieveAppointmentByID(c *gin.Context) {
-	id := c.Param("id")
+func (h *AppointmentHandler) GetAppointment(ctx context.Context, req *pb.GetAppointmentRequest) (*pb.AppointmentResponse, error) {
 
-	appointment, err := h.uc.GetAppointmentInfo(c.Request.Context(), id)
+	res, err := h.uc.GetAppointmentInfo(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
-			c.JSON(404, gin.H{"error": "appointment not found"})
-			return
+			return nil, status.Error(codes.NotFound, "not found")
 		}
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+		return nil, status.Error(codes.Internal, "internal error")
 	}
-	c.JSON(200, appointment)
+	return appointmentToProto(&res), nil
+
 }
 
-func (h *AppointmentHandler) PatchAppointmentStatus(c *gin.Context) {
-	id := c.Param("id")
-
-	var req struct {
-		Status model.Status `json:"status"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	input := dto.PatchDTO{Id: id, Status: &req.Status}
-	appointment, err := h.uc.PatchAppointment(c.Request.Context(), input)
+func (h *AppointmentHandler) UpdateAppointmentStatus(ctx context.Context, req *pb.UpdateStatusRequest) (*pb.AppointmentResponse, error) {
+	var s model.Status = protoToStatus(req.Status)
+	input := dto.PatchDTO{Id: req.Id, Status: &s}
+	appointment, err := h.uc.PatchAppointment(ctx, input)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+		return nil, status.Error(codes.Internal, "internal error")
 	}
-	c.JSON(200, appointment)
+	return appointmentToProto(&appointment), nil
 }

@@ -11,7 +11,7 @@ import (
 )
 
 type AppointmentRepository interface {
-	CreateAppointment(ctx context.Context, appoint model.Appointment) error
+	CreateAppointment(ctx context.Context, appoint model.Appointment) (model.Appointment, error)
 	GetAppointments(ctx context.Context) ([]model.Appointment, error)
 	GetAppointment(ctx context.Context, id string) (model.Appointment, error)
 	PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error)
@@ -54,25 +54,29 @@ func (u *AppointmentUseCase) GetAppointmentInfo(ctx context.Context, id string) 
 
 }
 
-func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment model.Appointment) error {
+func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment model.Appointment) (model.Appointment, error) {
 	if appointment.DoctorID.IsZero() {
-		return errors.New("doctor_id is required")
+		return model.Appointment{}, errors.New("doctor_id is required")
 	}
 	ok, err := u.doctorClient.CheckDoctorExists(ctx, appointment.DoctorID.Hex())
 	if err != nil {
-		return fmt.Errorf("network error: cannot reach doctor-service: %v", err)
+		return model.Appointment{}, fmt.Errorf("network error: cannot reach doctor-service: %v", err)
 	}
 	if !ok {
-		return errors.New("doctor not found in doctor-service")
+		return model.Appointment{}, errors.New("doctor not found in doctor-service")
 	}
 	if appointment.Title == "" {
-		return errors.New("title is empty")
+		return model.Appointment{}, errors.New("title is empty")
 	}
 	appointment.Status = model.StatusNew
 	now := time.Now()
 	appointment.CreatedAt = now
 	appointment.UpdatedAt = now
-	return u.repo.CreateAppointment(ctx, appointment)
+	appoint, err := u.repo.CreateAppointment(ctx, appointment)
+	if err != nil {
+		return appoint, errors.New("internal error")
+	}
+	return appoint, nil
 }
 
 func (u *AppointmentUseCase) PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error) {

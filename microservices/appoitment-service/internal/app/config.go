@@ -1,25 +1,17 @@
 package app
 
-import (
-	"os"
-)
+import "os"
 
 type Config struct {
-	Port     string
-	MongoURI string
+	Port              string
+	MongoURI          string
+	DoctorServiceAddr string
 }
 
 func NewConfig() *Config {
 	return &Config{
-		Port:     getEnv("PORT", ":8080"),
-		MongoURI: getEnv("MONGO_URI", "mongodb://localhost:27017"),
+		Port:              os.Getenv("PORT"),
+		MongoURI:          os.Getenv("MONGO_URI"),
+		DoctorServiceAddr: os.Getenv("DOCTOR_SERVICE_URL"),
 	}
-
-}
-
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
 }

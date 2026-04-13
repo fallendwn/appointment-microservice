@@ -4,7 +4,7 @@
 // - protoc             v7.34.1
 // source: appoitment-service/internal/proto/appointment.proto
 
-package proto
+package appointment_service
 
 import (
 	context "context"

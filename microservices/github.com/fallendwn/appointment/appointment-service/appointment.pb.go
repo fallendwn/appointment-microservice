@@ -4,7 +4,7 @@
 // 	protoc        v7.34.1
 // source: appoitment-service/internal/proto/appointment.proto
 
-package proto
+package appointment_service
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -433,7 +433,7 @@ const file_appoitment_service_internal_proto_appointment_proto_rawDesc = "" +
 	"\x11CreateAppointment\x12%.appointment.CreateAppointmentRequest\x1a .appointment.AppointmentResponse\x12V\n" +
 	"\x0eGetAppointment\x12\".appointment.GetAppointmentRequest\x1a .appointment.AppointmentResponse\x12_\n" +
 	"\x10ListAppointments\x12$.appointment.ListAppointmentsRequest\x1a%.appointment.ListAppointmentsResponse\x12]\n" +
-	"\x17UpdateAppointmentStatus\x12 .appointment.UpdateStatusRequest\x1a .appointment.AppointmentResponseBKZIgithub.com/fallendwn/appointment/appointment-service/internal/proto;protob\x06proto3"
+	"\x17UpdateAppointmentStatus\x12 .appointment.UpdateStatusRequest\x1a .appointment.AppointmentResponseB6Z4github.com/fallendwn/appointment/appointment-serviceb\x06proto3"
 
 var (
 	file_appoitment_service_internal_proto_appointment_proto_rawDescOnce sync.Once

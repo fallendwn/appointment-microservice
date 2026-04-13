@@ -2,61 +2,64 @@ package transport
 
 import (
 	"context"
-	"errors"
 
-	"github.com/fallendwn/appointment/doctor-service/internal/dto"
 	"github.com/fallendwn/appointment/doctor-service/internal/model"
-	"github.com/gin-gonic/gin"
+	pb "github.com/fallendwn/appointment/doctor-service/internal/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type DoctorUseCase interface {
 	GetDoctorsInfo(ctx context.Context) ([]model.Doctor, error)
 	GetDoctorInfo(ctx context.Context, id string) (model.Doctor, error)
-	CreateDoctor(ctx context.Context, doc dto.CreateDoctorDTO) error
+	CreateDoctor(ctx context.Context, doc model.Doctor) (model.Doctor, error)
 }
 
 type DoctorHandler struct {
 	uc DoctorUseCase
+	pb.UnimplementedDoctorServiceServer
 }
 
 func NewDoctorHandler(uc DoctorUseCase) *DoctorHandler {
 	return &DoctorHandler{uc: uc}
 }
 
-func (h *DoctorHandler) Register(c *gin.Context) {
-	var doc dto.CreateDoctorDTO
-	if err := c.ShouldBindJSON(&doc); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
+func (h *DoctorHandler) CreateDoctor(ctx context.Context, req *pb.CreateDoctorRequest) (*pb.DoctorResponse, error) {
+	doc := model.Doctor{
+		FullName:       req.FullName,
+		Specialization: req.Specialization,
+		Email:          req.Email,
 	}
 
-	if err := h.uc.CreateDoctor(c.Request.Context(), doc); err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(201, doc)
-}
-
-func (h *DoctorHandler) RetrieveDoctors(c *gin.Context) {
-	doctors, err := h.uc.GetDoctorsInfo(c.Request.Context())
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, doctors)
-}
-
-func (h *DoctorHandler) RetrieveDoctorByID(c *gin.Context) {
-	id := c.Param("id")
-
-	doctor, err := h.uc.GetDoctorInfo(c.Request.Context(), id)
-	if err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			c.JSON(404, gin.H{"error": "doctor not found"})
-			return
+	if doctor, err := h.uc.CreateDoctor(ctx, doc); err != nil {
+		if err.Error() == "full_name and email are required" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+		return nil, status.Error(codes.Internal, "internal error")
+	} else {
+		return doctorToProto(&doctor), nil
 	}
-	c.JSON(200, doctor)
+
+}
+
+func (h *DoctorHandler) GetDoctor(ctx context.Context, req *pb.GetDoctorRequest) (*pb.DoctorResponse, error) {
+
+	doctor, err := h.uc.GetDoctorInfo(ctx, req.Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "doctor not found")
+	}
+	return doctorToProto(&doctor), nil
+
+}
+
+func (h *DoctorHandler) ListDoctors(ctx context.Context, req *pb.ListDoctorsRequest) (*pb.ListDoctorsResponse, error) {
+	doc, err := h.uc.GetDoctorsInfo(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+	var res []*pb.DoctorResponse
+	for _, d := range doc {
+		res = append(res, doctorToProto(&d))
+	}
+	return &pb.ListDoctorsResponse{Doctors: res}, nil
 }

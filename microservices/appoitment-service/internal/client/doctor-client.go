@@ -2,31 +2,28 @@ package client
 
 import (
 	"context"
-	"fmt"
-	"net/http"
+
+	pb "github.com/fallendwn/appointment-proto/doctor"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type DoctorClient struct {
-	baseURL string
+	client pb.DoctorServiceClient
 }
 
-func NewDoctorClient(baseURL string) *DoctorClient {
-	return &DoctorClient{baseURL: baseURL}
+func NewDoctorClient(address string) (*DoctorClient, error) {
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	return &DoctorClient{client: pb.NewDoctorServiceClient(conn)}, nil
 }
 
 func (c *DoctorClient) CheckDoctorExists(ctx context.Context, doctorID string) (bool, error) {
-	url := fmt.Sprintf("%s/api/v1/doctors/%s", c.baseURL, doctorID)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	_, err := c.client.GetDoctor(ctx, &pb.GetDoctorRequest{Id: doctorID})
 	if err != nil {
 		return false, err
 	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode == http.StatusOK, nil
+	return true, nil
 }

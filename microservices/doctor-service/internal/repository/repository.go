@@ -27,9 +27,13 @@ func NewDoctorRepo(col *mongo.Collection) *DoctorRepo {
 	return &DoctorRepo{col: col}
 }
 
-func (r *DoctorRepo) CreateDoctor(ctx context.Context, doc model.Doctor) error {
-	_, err := r.col.InsertOne(ctx, toDoctorDAO(doc))
-	return err
+func (r *DoctorRepo) CreateDoctor(ctx context.Context, doc model.Doctor) (model.Doctor, error) {
+	res, err := r.col.InsertOne(ctx, toDoctorDAO(doc))
+	doc.ID = res.InsertedID.(primitive.ObjectID)
+	if err != nil {
+		return model.Doctor{}, err
+	}
+	return doc, nil
 }
 
 func (r *DoctorRepo) GetDoctors(ctx context.Context) ([]model.Doctor, error) {

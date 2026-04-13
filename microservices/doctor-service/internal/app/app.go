@@ -2,24 +2,35 @@ package app
 
 import (
 	"log"
+	"net"
 
+	pb "github.com/fallendwn/appointment/doctor-service/internal/proto"
 	"github.com/fallendwn/appointment/doctor-service/internal/repository"
 	"github.com/fallendwn/appointment/doctor-service/internal/transport"
 	"github.com/fallendwn/appointment/doctor-service/internal/usecase"
-	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 func Run(cfg *Config) {
 	client, err := repository.InitMongoDB(cfg.MongoURI)
 	if err != nil {
-		log.Fatalf("Failed to connect to mongo %v", err)
+		log.Fatalf("fail to connect to mongo %v", err)
 	}
 	db := client.Database("doctor_db")
 
 	doctorRepo := repository.NewDoctorRepo(db.Collection("doctors"))
 	doctorService := usecase.NewDoctorUseCase(doctorRepo)
 	doctorHandler := transport.NewDoctorHandler(doctorService)
-	r := gin.Default()
-	transport.RegisterRouter(r, doctorHandler)
-	r.Run(cfg.Port)
+
+	lis, err := net.Listen("tcp", cfg.Port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	pb.RegisterDoctorServiceServer(s, doctorHandler)
+
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
+	}
 }
