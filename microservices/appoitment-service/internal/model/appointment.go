@@ -15,13 +15,13 @@ const (
 )
 
 type Appointment struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Title       string             `bson:"title" json:"title"`
-	Description string             `bson:"description" json:"description"`
-	DoctorID    primitive.ObjectID `bson:"doctor_id" json:"doctor_id"`
-	Status      Status             `bson:"status" json:"status"`
-	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
+	ID          primitive.ObjectID
+	Title       string
+	Description string
+	DoctorID    primitive.ObjectID
+	Status      Status
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (s Status) IsValid() bool {

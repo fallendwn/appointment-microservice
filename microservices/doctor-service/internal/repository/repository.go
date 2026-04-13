@@ -24,20 +24,15 @@ func NewDoctorRepo(col *mongo.Collection) *DoctorRepo {
 	if err != nil {
 		fmt.Print(err)
 	}
-	return &DoctorRepo{
-		col: col,
-	}
+	return &DoctorRepo{col: col}
 }
 
 func (r *DoctorRepo) CreateDoctor(ctx context.Context, doc model.Doctor) error {
-
-	_, err := r.col.InsertOne(ctx, doc)
+	_, err := r.col.InsertOne(ctx, toDoctorDAO(doc))
 	return err
-
 }
 
 func (r *DoctorRepo) GetDoctors(ctx context.Context) ([]model.Doctor, error) {
-	var doctorsList []model.Doctor
 	filter := bson.M{}
 	cursor, err := r.col.Find(ctx, filter)
 	if err != nil {
@@ -45,17 +40,18 @@ func (r *DoctorRepo) GetDoctors(ctx context.Context) ([]model.Doctor, error) {
 	}
 	defer cursor.Close(ctx)
 
+	var result []model.Doctor
 	for cursor.Next(ctx) {
-		var d model.Doctor
+		var d doctorDAO
 		if err := cursor.Decode(&d); err != nil {
 			return nil, err
 		}
-		doctorsList = append(doctorsList, d)
+		result = append(result, fromDoctorDAO(d))
 	}
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
-	return doctorsList, nil
+	return result, nil
 }
 
 func (r *DoctorRepo) GetDoctor(ctx context.Context, id string) (model.Doctor, error) {
@@ -64,11 +60,13 @@ func (r *DoctorRepo) GetDoctor(ctx context.Context, id string) (model.Doctor, er
 		return model.Doctor{}, err
 	}
 	filter := bson.M{"_id": objectId}
-	var result model.Doctor
-	err = r.col.FindOne(ctx, filter).Decode(&result)
+	var d doctorDAO
+	err = r.col.FindOne(ctx, filter).Decode(&d)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return model.Doctor{}, model.ErrNotFound
+		}
 		return model.Doctor{}, err
 	}
-
-	return result, nil
+	return fromDoctorDAO(d), nil
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/fallendwn/appointment/appointment-service/internal/client"
 	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
 )
@@ -16,13 +16,18 @@ type AppointmentRepository interface {
 	GetAppointment(ctx context.Context, id string) (model.Appointment, error)
 	PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error)
 }
+type DoctorClient interface {
+	CheckDoctorExists(ctx context.Context, doctorID string) (bool, error)
+}
 type AppointmentUseCase struct {
-	repo AppointmentRepository
+	repo         AppointmentRepository
+	doctorClient DoctorClient
 }
 
-func NewAppointmentUseCase(repo AppointmentRepository) *AppointmentUseCase {
+func NewAppointmentUseCase(repo AppointmentRepository, dc DoctorClient) *AppointmentUseCase {
 	return &AppointmentUseCase{
-		repo: repo,
+		repo:         repo,
+		doctorClient: dc,
 	}
 
 }
@@ -50,7 +55,10 @@ func (u *AppointmentUseCase) GetAppointmentInfo(ctx context.Context, id string) 
 }
 
 func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment model.Appointment) error {
-	ok, err := client.CheckDoctorExists(ctx, appointment.DoctorID.Hex())
+	if appointment.DoctorID.IsZero() {
+		return errors.New("doctor_id is required")
+	}
+	ok, err := u.doctorClient.CheckDoctorExists(ctx, appointment.DoctorID.Hex())
 	if err != nil {
 		return fmt.Errorf("network error: cannot reach doctor-service: %v", err)
 	}
@@ -60,28 +68,26 @@ func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment 
 	if appointment.Title == "" {
 		return errors.New("title is empty")
 	}
-	if appointment.Description == "" {
-		return errors.New("description is empty")
-	}
-	if !appointment.Status.IsValid() {
-		return fmt.Errorf("invalid status: received '%s'", appointment.Status)
-	}
+	appointment.Status = model.StatusNew
+	now := time.Now()
+	appointment.CreatedAt = now
+	appointment.UpdatedAt = now
 	return u.repo.CreateAppointment(ctx, appointment)
 }
 
 func (u *AppointmentUseCase) PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error) {
-
+	if input.Status != nil && !input.Status.IsValid() {
+		return model.Appointment{}, errors.New("invalid status value")
+	}
 	appointment, err := u.repo.GetAppointment(ctx, input.Id)
 	if err != nil {
 		return appointment, errors.New("appointment d.n.e.")
 	}
 
 	var status model.Status = appointment.Status
-	switch {
-	case status == "done":
-		return appointment, errors.New("cannot change appointment that is already done")
-	case status == "in_progress" && input.Status != nil && *input.Status == model.StatusNew:
-		return appointment, errors.New("cannot change appointment from progress to new")
+	if status == model.StatusDone && input.Status != nil && *input.Status == model.StatusNew {
+		return appointment, errors.New("cannot transition from done to new")
 	}
+	appointment.UpdatedAt = time.Now()
 	return u.repo.PatchAppointment(ctx, input)
 }

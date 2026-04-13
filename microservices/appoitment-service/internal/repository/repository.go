@@ -17,20 +17,15 @@ type AppointmentRepo struct {
 }
 
 func NewAppointmentRepo(col *mongo.Collection) *AppointmentRepo {
-	return &AppointmentRepo{
-		col: col,
-	}
+	return &AppointmentRepo{col: col}
 }
 
 func (r *AppointmentRepo) CreateAppointment(ctx context.Context, appoint model.Appointment) error {
-
-	_, err := r.col.InsertOne(ctx, appoint)
+	_, err := r.col.InsertOne(ctx, toAppointmentDAO(appoint))
 	return err
-
 }
 
 func (r *AppointmentRepo) GetAppointments(ctx context.Context) ([]model.Appointment, error) {
-	var appointmentsList []model.Appointment
 	filter := bson.M{}
 	cursor, err := r.col.Find(ctx, filter)
 	if err != nil {
@@ -38,17 +33,18 @@ func (r *AppointmentRepo) GetAppointments(ctx context.Context) ([]model.Appointm
 	}
 	defer cursor.Close(ctx)
 
+	var result []model.Appointment
 	for cursor.Next(ctx) {
-		var appoints model.Appointment
-		if err := cursor.Decode(&appoints); err != nil {
+		var a appointmentDAO
+		if err := cursor.Decode(&a); err != nil {
 			return nil, err
 		}
-		appointmentsList = append(appointmentsList, appoints)
+		result = append(result, fromAppointmentDAO(a))
 	}
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
-	return appointmentsList, nil
+	return result, nil
 }
 
 func (r *AppointmentRepo) GetAppointment(ctx context.Context, id string) (model.Appointment, error) {
@@ -57,13 +53,15 @@ func (r *AppointmentRepo) GetAppointment(ctx context.Context, id string) (model.
 		return model.Appointment{}, err
 	}
 	filter := bson.M{"_id": objectId}
-	var result model.Appointment
-	err = r.col.FindOne(ctx, filter).Decode(&result)
+	var a appointmentDAO
+	err = r.col.FindOne(ctx, filter).Decode(&a)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return model.Appointment{}, model.ErrNotFound
+		}
 		return model.Appointment{}, err
 	}
-
-	return result, nil
+	return fromAppointmentDAO(a), nil
 }
 
 func (r *AppointmentRepo) PatchAppointment(ctx context.Context, dto dto.PatchDTO) (model.Appointment, error) {
@@ -75,11 +73,10 @@ func (r *AppointmentRepo) PatchAppointment(ctx context.Context, dto dto.PatchDTO
 	filterId := bson.M{"_id": objectId}
 	filterStatus := bson.M{"$set": bson.M{"status": dto.Status, "updated_at": time.Now()}}
 
-	var updatedDoc model.Appointment
-
-	err = r.col.FindOneAndUpdate(ctx, filterId, filterStatus, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedDoc)
+	var a appointmentDAO
+	err = r.col.FindOneAndUpdate(ctx, filterId, filterStatus, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&a)
 	if err != nil {
 		return model.Appointment{}, err
 	}
-	return updatedDoc, nil
+	return fromAppointmentDAO(a), nil
 }
