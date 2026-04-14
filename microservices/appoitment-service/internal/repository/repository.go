@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -26,12 +25,11 @@ func (r *AppointmentRepo) CreateAppointment(ctx context.Context, appoint model.A
 		return model.Appointment{}, err
 	}
 	appoint.ID = result.InsertedID.(primitive.ObjectID)
-	return appoint, err
+	return appoint, nil
 }
 
 func (r *AppointmentRepo) GetAppointments(ctx context.Context) ([]model.Appointment, error) {
-	filter := bson.M{}
-	cursor, err := r.col.Find(ctx, filter)
+	cursor, err := r.col.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +54,8 @@ func (r *AppointmentRepo) GetAppointment(ctx context.Context, id string) (model.
 	if err != nil {
 		return model.Appointment{}, err
 	}
-	filter := bson.M{"_id": objectId}
 	var a appointmentDAO
-	err = r.col.FindOne(ctx, filter).Decode(&a)
+	err = r.col.FindOne(ctx, bson.M{"_id": objectId}).Decode(&a)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return model.Appointment{}, model.ErrNotFound
@@ -68,17 +65,19 @@ func (r *AppointmentRepo) GetAppointment(ctx context.Context, id string) (model.
 	return fromAppointmentDAO(a), nil
 }
 
-func (r *AppointmentRepo) PatchAppointment(ctx context.Context, dto dto.PatchDTO) (model.Appointment, error) {
-	objectId, err := primitive.ObjectIDFromHex(dto.Id)
+func (r *AppointmentRepo) PatchAppointment(ctx context.Context, id string, status model.Status) (model.Appointment, error) {
+	objectId, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return model.Appointment{}, err
 	}
 
-	filterId := bson.M{"_id": objectId}
-	filterStatus := bson.M{"$set": bson.M{"status": dto.Status, "updated_at": time.Now()}}
-
 	var a appointmentDAO
-	err = r.col.FindOneAndUpdate(ctx, filterId, filterStatus, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&a)
+	err = r.col.FindOneAndUpdate(
+		ctx,
+		bson.M{"_id": objectId},
+		bson.M{"$set": bson.M{"status": string(status), "updated_at": time.Now()}},
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(&a)
 	if err != nil {
 		return model.Appointment{}, err
 	}

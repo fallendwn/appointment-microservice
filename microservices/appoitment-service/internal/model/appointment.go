@@ -9,9 +9,9 @@ import (
 type Status string
 
 const (
-	StatusNew       Status = "new"
-	StatusInProgres Status = "in_progress"
-	StatusDone      Status = "done"
+	StatusNew        Status = "new"
+	StatusInProgress Status = "in_progress"
+	StatusDone       Status = "done"
 )
 
 type Appointment struct {
@@ -26,7 +26,7 @@ type Appointment struct {
 
 func (s Status) IsValid() bool {
 	switch s {
-	case StatusNew, StatusInProgres, StatusDone:
+	case StatusNew, StatusInProgress, StatusDone:
 		return true
 	}
 	return false

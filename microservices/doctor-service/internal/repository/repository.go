@@ -29,10 +29,11 @@ func NewDoctorRepo(col *mongo.Collection) *DoctorRepo {
 
 func (r *DoctorRepo) CreateDoctor(ctx context.Context, doc model.Doctor) (model.Doctor, error) {
 	res, err := r.col.InsertOne(ctx, toDoctorDAO(doc))
-	doc.ID = res.InsertedID.(primitive.ObjectID)
 	if err != nil {
 		return model.Doctor{}, err
 	}
+	doc.ID = res.InsertedID.(primitive.ObjectID)
+
 	return doc, nil
 }
 

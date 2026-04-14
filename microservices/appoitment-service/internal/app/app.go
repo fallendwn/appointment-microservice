@@ -5,10 +5,10 @@ import (
 	"net"
 
 	appclient "github.com/fallendwn/appointment/appointment-service/internal/client"
-	pb "github.com/fallendwn/appointment/appointment-service/internal/proto"
 	"github.com/fallendwn/appointment/appointment-service/internal/repository"
 	"github.com/fallendwn/appointment/appointment-service/internal/transport"
 	"github.com/fallendwn/appointment/appointment-service/internal/usecase"
+	pb "github.com/fallendwn/appointment/appointment-service/proto"
 	"google.golang.org/grpc"
 )
 

@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 
-	// 1. Используем импорт из твоего общего репозитория
 	pb "github.com/fallendwn/appointment-proto/doctor"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
 	"google.golang.org/grpc"

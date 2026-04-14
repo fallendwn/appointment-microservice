@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
-	pb "github.com/fallendwn/appointment/appointment-service/internal/proto"
+	pb "github.com/fallendwn/appointment/appointment-service/proto"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,7 +14,7 @@ import (
 type AppointmentUseCase interface {
 	GetAppointmentsInfo(ctx context.Context) ([]model.Appointment, error)
 	GetAppointmentInfo(ctx context.Context, id string) (model.Appointment, error)
-	PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error)
+	PatchAppointment(ctx context.Context, id string, status model.Status) (model.Appointment, error)
 	CreateAppointment(ctx context.Context, appointment model.Appointment) (model.Appointment, error)
 }
 
@@ -89,17 +88,22 @@ func (h *AppointmentHandler) UpdateAppointmentStatus(ctx context.Context, req *p
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	s := protoToStatus(req.Status)
-	input := dto.PatchDTO{Id: req.Id, Status: &s}
-	appointment, err := h.uc.PatchAppointment(ctx, input)
+	appointment, err := h.uc.PatchAppointment(ctx, req.Id, s)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "appointment not found")
 		}
-		if err.Error() == "cannot transition from done to new" {
-			return nil, status.Error(codes.InvalidArgument, "cannot transition status from done to new")
+		if errors.Is(err, model.ErrInvalidStatusTransition) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		if err.Error() == "invalid status value" {
-			return nil, status.Error(codes.InvalidArgument, "invalid status value")
+		if errors.Is(err, model.ErrInvalidStatus) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, model.ErrDoctorUnavailable) {
+			return nil, status.Error(codes.Unavailable, "doctor service is unavailable")
+		}
+		if errors.Is(err, model.ErrDoctorNotFound) {
+			return nil, status.Error(codes.FailedPrecondition, "doctor does not exist")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}

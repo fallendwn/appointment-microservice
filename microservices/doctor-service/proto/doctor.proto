@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package doctor;
 
-option go_package = "github.com/fallendwn/appointment/doctor-service/internal/proto;proto";
+option go_package = "github.com/fallendwn/appointment/doctor-service/proto;doctorpb";
+
 
 service DoctorService {
 

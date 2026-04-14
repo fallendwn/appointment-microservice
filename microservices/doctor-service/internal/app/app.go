@@ -4,10 +4,10 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/fallendwn/appointment/doctor-service/internal/proto"
 	"github.com/fallendwn/appointment/doctor-service/internal/repository"
 	"github.com/fallendwn/appointment/doctor-service/internal/transport"
 	"github.com/fallendwn/appointment/doctor-service/internal/usecase"
+	pb "github.com/fallendwn/appointment/doctor-service/proto"
 	"google.golang.org/grpc"
 )
 

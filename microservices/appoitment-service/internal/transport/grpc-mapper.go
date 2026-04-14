@@ -2,8 +2,7 @@ package transport
 
 import (
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
-	pb "github.com/fallendwn/appointment/appointment-service/internal/proto"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	pb "github.com/fallendwn/appointment/appointment-service/proto"
 )
 
 func appointmentToProto(a *model.Appointment) *pb.AppointmentResponse {
@@ -22,7 +21,7 @@ func appointmentToProto(a *model.Appointment) *pb.AppointmentResponse {
 func statusToProto(s model.Status) pb.AppointmentStatus {
 
 	switch s {
-	case model.StatusInProgres:
+	case model.StatusInProgress:
 		return pb.AppointmentStatus_IN_PROGRESS
 	case model.StatusDone:
 		return pb.AppointmentStatus_DONE
@@ -38,13 +37,10 @@ func protoToStatus(s pb.AppointmentStatus) model.Status {
 	case pb.AppointmentStatus_DONE:
 		return model.StatusDone
 	case pb.AppointmentStatus_IN_PROGRESS:
-		return model.StatusInProgres
+		return model.StatusInProgress
 
 	default:
-		return model.StatusInProgres
+		return model.StatusNew
 	}
 
-}
-func protoToObjectID(hex string) (primitive.ObjectID, error) {
-	return primitive.ObjectIDFromHex(hex)
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
 )
 
@@ -13,7 +12,7 @@ type AppointmentRepository interface {
 	CreateAppointment(ctx context.Context, appoint model.Appointment) (model.Appointment, error)
 	GetAppointments(ctx context.Context) ([]model.Appointment, error)
 	GetAppointment(ctx context.Context, id string) (model.Appointment, error)
-	PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error)
+	PatchAppointment(ctx context.Context, id string, status model.Status) (model.Appointment, error)
 }
 
 type DoctorClient interface {
@@ -57,7 +56,7 @@ func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment 
 		return model.Appointment{}, err
 	}
 	if !ok {
-		return model.Appointment{}, errors.New("doctor not found in doctor-service")
+		return model.Appointment{}, model.ErrDoctorNotFound
 	}
 
 	appointment.Status = model.StatusNew
@@ -68,20 +67,20 @@ func (u *AppointmentUseCase) CreateAppointment(ctx context.Context, appointment 
 	return u.repo.CreateAppointment(ctx, appointment)
 }
 
-func (u *AppointmentUseCase) PatchAppointment(ctx context.Context, input dto.PatchDTO) (model.Appointment, error) {
-	if input.Status != nil && !input.Status.IsValid() {
-		return model.Appointment{}, errors.New("invalid status value")
+func (u *AppointmentUseCase) PatchAppointment(ctx context.Context, id string, newStatus model.Status) (model.Appointment, error) {
+	if !newStatus.IsValid() {
+		return model.Appointment{}, model.ErrInvalidStatus
 	}
 
-	appointment, err := u.repo.GetAppointment(ctx, input.Id)
+	appointment, err := u.repo.GetAppointment(ctx, id)
 	if err != nil {
-		return appointment, err
+		return model.Appointment{}, err
 	}
 
-	if appointment.Status == model.StatusDone && input.Status != nil && *input.Status == model.StatusNew {
-		return appointment, errors.New("cannot transition from done to new")
+	if appointment.Status == model.StatusDone && newStatus == model.StatusNew {
+		return model.Appointment{}, model.ErrInvalidStatusTransition
 	}
 
 	appointment.UpdatedAt = time.Now()
-	return u.repo.PatchAppointment(ctx, input)
+	return u.repo.PatchAppointment(ctx, id, newStatus)
 }

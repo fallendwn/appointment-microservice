@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/fallendwn/appointment/doctor-service/internal/model"
-	pb "github.com/fallendwn/appointment/doctor-service/internal/proto"
+	pb "github.com/fallendwn/appointment/doctor-service/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,9 +26,6 @@ func NewDoctorHandler(uc DoctorUseCase) *DoctorHandler {
 }
 
 func (h *DoctorHandler) CreateDoctor(ctx context.Context, req *pb.CreateDoctorRequest) (*pb.DoctorResponse, error) {
-	if req.FullName == "" || req.Email == "" {
-		return nil, status.Error(codes.InvalidArgument, "full_name and email are required")
-	}
 
 	doc := model.Doctor{
 		FullName:       req.FullName,
