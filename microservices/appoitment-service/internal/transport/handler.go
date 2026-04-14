@@ -3,7 +3,6 @@ package transport
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/fallendwn/appointment/appointment-service/internal/dto"
 	"github.com/fallendwn/appointment/appointment-service/internal/model"
@@ -28,29 +27,35 @@ type AppointmentHandler struct {
 func NewAppointmentHandler(uc AppointmentUseCase) *AppointmentHandler {
 	return &AppointmentHandler{uc: uc}
 }
+
 func (h *AppointmentHandler) CreateAppointment(ctx context.Context, req *pb.CreateAppointmentRequest) (*pb.AppointmentResponse, error) {
-	//doctor exists?
+	if req.Title == "" {
+		return nil, status.Error(codes.InvalidArgument, "title is required")
+	}
+	if req.DoctorId == "" {
+		return nil, status.Error(codes.InvalidArgument, "doctor_id is required")
+	}
+
 	doctorID, err := primitive.ObjectIDFromHex(req.DoctorId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid doctor_id")
+		return nil, status.Error(codes.InvalidArgument, "invalid doctor_id format")
 	}
-	appointment := model.Appointment{
+
+	appoint, err := h.uc.CreateAppointment(ctx, model.Appointment{
 		Title:       req.Title,
 		Description: req.Description,
 		DoctorID:    doctorID,
-	}
-
-	if appoint, err := h.uc.CreateAppointment(ctx, appointment); err != nil {
-		if err.Error() == "doctor not found in doctor-service" {
-			return nil, status.Error(codes.NotFound, "invalid doctor_id")
-		}
-		if strings.Contains(err.Error(), "network error") {
+	})
+	if err != nil {
+		if errors.Is(err, model.ErrDoctorUnavailable) {
 			return nil, status.Error(codes.Unavailable, "doctor service is unavailable")
 		}
+		if errors.Is(err, model.ErrDoctorNotFound) {
+			return nil, status.Error(codes.FailedPrecondition, "doctor does not exist")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
-	} else {
-		return appointmentToProto(&appoint), nil
 	}
+	return appointmentToProto(&appoint), nil
 }
 
 func (h *AppointmentHandler) ListAppointments(ctx context.Context, req *pb.ListAppointmentsRequest) (*pb.ListAppointmentsResponse, error) {
@@ -66,23 +71,36 @@ func (h *AppointmentHandler) ListAppointments(ctx context.Context, req *pb.ListA
 }
 
 func (h *AppointmentHandler) GetAppointment(ctx context.Context, req *pb.GetAppointmentRequest) (*pb.AppointmentResponse, error) {
-
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
 	res, err := h.uc.GetAppointmentInfo(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "not found")
+			return nil, status.Error(codes.NotFound, "appointment not found")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 	return appointmentToProto(&res), nil
-
 }
 
 func (h *AppointmentHandler) UpdateAppointmentStatus(ctx context.Context, req *pb.UpdateStatusRequest) (*pb.AppointmentResponse, error) {
-	var s model.Status = protoToStatus(req.Status)
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	s := protoToStatus(req.Status)
 	input := dto.PatchDTO{Id: req.Id, Status: &s}
 	appointment, err := h.uc.PatchAppointment(ctx, input)
 	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, "appointment not found")
+		}
+		if err.Error() == "cannot transition from done to new" {
+			return nil, status.Error(codes.InvalidArgument, "cannot transition status from done to new")
+		}
+		if err.Error() == "invalid status value" {
+			return nil, status.Error(codes.InvalidArgument, "invalid status value")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 	return appointmentToProto(&appointment), nil

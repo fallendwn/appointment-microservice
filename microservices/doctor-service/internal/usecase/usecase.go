@@ -51,7 +51,8 @@ func (u *DoctorUseCase) CreateDoctor(ctx context.Context, input model.Doctor) (m
 	}
 	res, err := u.repo.CreateDoctor(ctx, doc)
 	if err != nil {
-		return model.Doctor{}, errors.New("internal")
+		// propagate duplicate key error for handler to detect
+		return model.Doctor{}, err
 	}
 	return res, nil
 }

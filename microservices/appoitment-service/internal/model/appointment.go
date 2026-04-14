@@ -4,14 +4,9 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc/codes"
 )
 
 type Status string
-
-func (s Status) Error(internal codes.Code, param2 string) error {
-	panic("unimplemented")
-}
 
 const (
 	StatusNew       Status = "new"

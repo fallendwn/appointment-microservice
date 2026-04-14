@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"strings"
 
 	"github.com/fallendwn/appointment/doctor-service/internal/model"
 	pb "github.com/fallendwn/appointment/doctor-service/internal/proto"
@@ -25,31 +26,38 @@ func NewDoctorHandler(uc DoctorUseCase) *DoctorHandler {
 }
 
 func (h *DoctorHandler) CreateDoctor(ctx context.Context, req *pb.CreateDoctorRequest) (*pb.DoctorResponse, error) {
+	if req.FullName == "" || req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "full_name and email are required")
+	}
+
 	doc := model.Doctor{
 		FullName:       req.FullName,
 		Specialization: req.Specialization,
 		Email:          req.Email,
 	}
 
-	if doctor, err := h.uc.CreateDoctor(ctx, doc); err != nil {
+	doctor, err := h.uc.CreateDoctor(ctx, doc)
+	if err != nil {
+		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "email already") {
+			return nil, status.Error(codes.AlreadyExists, "email already in use")
+		}
 		if err.Error() == "full_name and email are required" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		return nil, status.Error(codes.Internal, "internal error")
-	} else {
-		return doctorToProto(&doctor), nil
 	}
-
+	return doctorToProto(&doctor), nil
 }
 
 func (h *DoctorHandler) GetDoctor(ctx context.Context, req *pb.GetDoctorRequest) (*pb.DoctorResponse, error) {
-
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
 	doctor, err := h.uc.GetDoctorInfo(ctx, req.Id)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "doctor not found")
 	}
 	return doctorToProto(&doctor), nil
-
 }
 
 func (h *DoctorHandler) ListDoctors(ctx context.Context, req *pb.ListDoctorsRequest) (*pb.ListDoctorsResponse, error) {

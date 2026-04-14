@@ -3,9 +3,13 @@ package client
 import (
 	"context"
 
+	// 1. Используем импорт из твоего общего репозитория
 	pb "github.com/fallendwn/appointment-proto/doctor"
+	"github.com/fallendwn/appointment/appointment-service/internal/model"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type DoctorClient struct {
@@ -23,7 +27,12 @@ func NewDoctorClient(address string) (*DoctorClient, error) {
 func (c *DoctorClient) CheckDoctorExists(ctx context.Context, doctorID string) (bool, error) {
 	_, err := c.client.GetDoctor(ctx, &pb.GetDoctorRequest{Id: doctorID})
 	if err != nil {
-		return false, err
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.NotFound {
+				return false, model.ErrDoctorNotFound
+			}
+		}
+		return false, model.ErrDoctorUnavailable
 	}
 	return true, nil
 }
